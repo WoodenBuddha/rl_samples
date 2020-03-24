@@ -10,10 +10,10 @@ class PolicyGradientAgent(nn.Module):
         self.dense = nn.Linear()
 
     def build(self):
-        model =
+        model = None
 
     def forward(self, x):
-        x =
+        x = None
 
     def policy_function(self, x):
         pass

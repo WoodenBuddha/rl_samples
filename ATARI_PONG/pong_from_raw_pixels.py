@@ -2,16 +2,14 @@ import numpy as np
 import gym
 
 
-import agents.pg_agent as agent
-
 # hyperparameters
 H = 200 # number of hidden layer neurons
 batch_size = 10 # every how many episodes to do a param update?
-learning_rate = 1e-4
+learning_rate = 1e-3
 gamma = 0.99
 decay_rate = 0.99 # decay factor for RMSProp leaky sum of grad^2
 resume = False
-render = False
+render = True
 
 # model initialization
 D = 80 * 80 # input dimensionality: 80x80 grid
@@ -19,6 +17,8 @@ model = dict()
 model['W1'] = np.random.randn(H,D) / np.sqrt(D) # "Xavier" initialization
 model['W2'] = np.random.randn(H) / np.sqrt(H)
 
+
+# grad map with k = name and v array
 grad_buffer = { k : np.zeros_like(v) for k,v in model.items() } # update buffers that add up gradients over a batch
 rmsprop_cache = { k : np.zeros_like(v) for k,v in model.items() } # rmsprop memory
 
@@ -51,7 +51,8 @@ def discount_rewards(r):
             running_add = 0  # reset the sum, since this was a game boundary (pong specific!)
         running_add = running_add * gamma + r[t]
         discounted_r[t] = running_add
-    return running_add
+    return discounted_r
+
 
 def policy_forward(x):
     h = np.dot(model['W1'], x)
@@ -60,19 +61,19 @@ def policy_forward(x):
     p = sigmoid(logp)
     return p, h  # return probability of taking action 2, and hidden state
 
+
 def policy_backward(eph, epdlogp):
-    """ backward pass. (eph is array of intermediate hidden states)
-        d = derivative
-    """
-    dW2 = np.dot(eph.T, epdlogp).ravel()
-    dh = np.outer(epdlogp, model['W2'])
-    dh[eph <= 0] = 0  # backprop relu
-    dW1 = np.dot(dh.T, eph)
-    return {'W1': dW1, 'W2': dW2}
+  """ backward pass. (eph is array of intermediate hidden states) """
+  dW2 = np.dot(eph.T, epdlogp).ravel()
+  dh = np.outer(epdlogp, model['W2'])
+  dh[eph <= 0] = 0 # backpro prelu
+  dW1 = np.dot(dh.T, epx)
+  return {'W1':dW1, 'W2':dW2}
 
 
 env = gym.make("Pong-v0")
 observation = env.reset()
+print('actions {}'.format(env.action_space.n))
 prev_x = None # used in computing the difference frame
 xs,hs,dlogps,drs = [],[],[],[]
 running_reward = None
@@ -88,7 +89,8 @@ while True:
 
   # forward the policy network and sample an action from the returned probability
   aprob, h = policy_forward(x)
-  action = 2 if np.random.uniform() < aprob else 3 # roll the dice!
+  # action = 2 if np.random.uniform() < aprob else 3 # roll the dice!
+  action = 2 if np.random.uniform() < aprob else 3
 
   # record various intermediates (needed later for backprop)
   xs.append(x) # observation
@@ -139,22 +141,3 @@ while True:
 
   if reward != 0: # Pong has either +1 or -1 reward exactly when game ends.
     print('ep {d}: game finished, reward: {f}{e}'.format(d=episode_number, f=reward, e='' if reward == -1 else ' !!!!!!!!'))
-
-
-# ENVIRONMENT = 'Pong-v0'
-#
-#
-# def get_env(env_name):
-#     if env_name is None:
-#         return None
-#
-#     return gym.make(env_name)
-#
-#
-# env = get_env(ENVIRONMENT)
-#
-#
-# def policy_function():
-#     pass
-
-
