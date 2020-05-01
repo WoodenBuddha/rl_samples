@@ -1,7 +1,5 @@
 import math
-import numpy as np
 import random
-
 
 import torch
 import torch.nn.functional as F
@@ -128,3 +126,16 @@ class DQNAgent():
 
     def sync_policies(self):
         self.target_net.load_state_dict(self.policy_net.state_dict())
+
+    def dump_policy(self, PATH=None):
+        if PATH is None:
+            PATH = ''
+        elif PATH == 'current_dir':
+            pass
+        elif PATH == 'storage':
+            pass
+
+        PATH += type(self.policy_net).__name__
+        PATH += '.pt'
+
+        torch.save(self.target_net.state_dict(), PATH)

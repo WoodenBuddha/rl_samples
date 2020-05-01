@@ -1,9 +1,10 @@
+from itertools import count
+
 import gym
-import torch
 import numpy as np
+import torch
 import torchvision.transforms as T
 
-from itertools import count
 from pong.agents.DQNAgent import DQNAgent
 
 resize = T.Compose([T.ToPILImage(),
@@ -37,24 +38,31 @@ n_actions = env.action_space.n
 agent = DQNAgent(screen_width, screen_height, n_actions)
 
 # start simulation
-num_episodes = 50
+num_episodes = 100
 resume = False
 render = True
 for i_episode in range(num_episodes):
-    print('Episode {}'.format(i_episode))
-    if render: env.render()
+    print('Episode {} started...'.format(i_episode))
     env.reset()
+    reward_sum = 0
+    running_reward = None
+
     last_screen = get_screen()
     current_screen = get_screen()
     state = current_screen - last_screen
 
     for t in count():
-        print('t = {}'.format(t))
         # Select and perform an action
+
+        if render: env.render()
+
         action = agent.select_action(state)
 
         # Simulate iteration
         _, reward, done, _ = env.step(action.item())
+
+        reward_sum += reward
+
         reward = torch.tensor([reward])
 
         # Observe new state
@@ -71,9 +79,16 @@ for i_episode in range(num_episodes):
         # Move to the next state
         state = next_state
 
-        agent.optimize_policy()
+        if t % agent.batch_size == 0:
+            agent.optimize_policy()
+
         if done:
             break
 
+    running_reward = reward_sum if running_reward is None else running_reward * 0.99 + reward_sum * 0.01
+    print('resetting env. episode reward total was %f. running mean: %f' % (reward_sum, running_reward))
+
     if i_episode % agent.target_update == 0:
         agent.sync_policies()
+
+agent.dump_policy()
