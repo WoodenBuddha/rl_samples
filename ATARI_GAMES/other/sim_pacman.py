@@ -10,18 +10,31 @@ from pong.agents.DQNAgent import DQNAgent
 resize = T.Compose([T.ToPILImage(),
                     T.ToTensor()])
 
-env = gym.make("Pong-v0")
+env = gym.make("MsPacman-v0")
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
+color = np.array([210, 164, 74]).mean()
 
 def get_screen():
     raw_screen = env.render(mode='rgb_array')
 
     # Crop screen
-    raw_screen = raw_screen[35:195]
-    screen = raw_screen.transpose((2, 0, 1))
+    raw_screen = raw_screen[1:176:2, ::2]
 
-    screen = np.ascontiguousarray(screen, dtype=np.float32) / 255
+    # Grayscale
+    raw_screen = raw_screen.mean(axis=2)
+
+    # Improve contrast
+    raw_screen[raw_screen == color] = 0
+
+    raw_screen = (raw_screen - 128) / 128 - 1
+
+    screen = raw_screen.reshape(88, 80, 1)
+
+    shape = (88, 80, 1)
+
+    screen = screen.transpose((2, 0, 1))
+
     screen = torch.from_numpy(screen)
 
     return torch.tensor(screen, dtype=torch.float).unsqueeze(0)
@@ -30,15 +43,17 @@ def get_screen():
 env.reset()
 
 init_screen = get_screen()
-_, _, screen_height, screen_width = init_screen.shape
+_, channels, screen_height, screen_width = init_screen.shape
+
+print(init_screen.shape)
 
 # Get number of actions from gym action space
 n_actions = env.action_space.n
 
-agent = DQNAgent(screen_width, screen_height, n_actions)
+agent = DQNAgent(channels, screen_width, screen_height, n_actions)
 
 # start simulation
-num_episodes = 100
+num_episodes = 800
 resume = False
 render = True
 for i_episode in range(num_episodes):

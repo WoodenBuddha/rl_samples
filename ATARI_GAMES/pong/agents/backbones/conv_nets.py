@@ -8,10 +8,10 @@ def conv_layer_out_(size, kernel_size=5, stride=2):
 
 
 class ConvNet(nn.Module):
-    def __init__(self, width, height, outputs, weights_init='xavier'):
+    def __init__(self, in_channels, width, height, outputs, weights_init='xavier'):
         super(ConvNet, self).__init__()
 
-        self.conv1 = nn.Conv2d(3, 16, kernel_size=5, stride=2)
+        self.conv1 = nn.Conv2d(in_channels, 16, kernel_size=5, stride=2)
         self.bn1 = nn.BatchNorm2d(16)
         init.xavier_uniform_(self.conv1.weight)
 
@@ -42,6 +42,6 @@ class ConvNet(nn.Module):
         x = self.bn3(x)
         x = F.relu(x)
 
-        x = x.view(x.size(0), -1)  # TODO: Figure out why that's so
+        x = x.view(x.size(0), -1)
         x = self.head(x)
         return x

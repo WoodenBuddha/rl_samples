@@ -11,10 +11,10 @@ from utils import Transition
 
 
 class DQNAgent():
-    def __init__(self, width, height, actions, device=None):
+    def __init__(self, in_channels, width, height, actions, device=None):
         self.actions = actions
-        self.policy_net = ConvNet(width, height, self.actions)
-        self.target_net = ConvNet(width, height, self.actions)
+        self.policy_net = ConvNet(in_channels, width, height, self.actions)
+        self.target_net = ConvNet(in_channels, width, height, self.actions)
 
         self.sync_policies()
 
