@@ -40,7 +40,7 @@ class DQNAgent():
         self.target_update = TARGET_UPDATE
 
     def load_state_dict(self, state_dict):
-        self.policy_net.load_state_dict(state_dict)
+        self.policy_net.load_state_dict(torch.load(state_dict))
         self.sync_policies()
 
     def set_optimizer(self, optimizer):
@@ -66,7 +66,7 @@ class DQNAgent():
             exploration_action = [[random.randrange(self.actions)]]
             return torch.tensor(exploration_action, device=self.device, dtype=torch.long)
 
-    def optimize_policy(self):
+    def optimize_policy(self, loss_gatherer=None):
         """ Optimize policy """
         if len(self.memory) < self.batch_size:
             return
@@ -80,10 +80,14 @@ class DQNAgent():
 
         # Compute a mask of non-final states and concatenate the batch elements
         # (a final state would've been the one after which simulation ended)
+        # Tuple (mask) of Null/NotNull states.
         non_final_mask = torch.tensor(tuple(map(lambda s: s is not None, batch.next_state)), device=self.device,
                                       dtype=torch.bool)
+
+        # Concatenate tensors in 0-dim (stack non null state-tensors from batch)
         non_final_next_states = torch.cat([s for s in batch.next_state if s is not None])
 
+        # Similar to np.vstack in 0-dim
         state_batch = torch.cat(batch.state)
         action_batch = torch.cat(batch.action)
         reward_batch = torch.cat(batch.reward)
@@ -94,7 +98,9 @@ class DQNAgent():
         # q_vals = []
         # for qv, ac in zip(Q(obs_batch), act_batch):
         #     q_vals.append(qv[ac])
+        #
         # q_vals = torch.cat(q_vals, dim=0)
+        # state_action_value == Q_value
         state_action_values = self.policy_net(state_batch).gather(1, action_batch)
 
         # Compute V(s_{t+1}) for all next states.
@@ -102,13 +108,20 @@ class DQNAgent():
         # on the "older" target_net; selecting their best reward with max(1)[0].
         # This is merged based on the mask, such that we'll have either the expected
         # state value or 0 in case the state was final.
+        #
+        # According to V(s) == max(Q(s)) => next_state_value.max() == next_q_value
+        # Therefore here: next_state_value == next_Q_value
         next_state_values = torch.zeros(self.batch_size, device=self.device)
         next_state_values[non_final_mask] = self.target_net(non_final_next_states).max(1)[0].detach()
 
         # Compute the expected Q values
+        # Make action and transit to next state, get REWARD for transition.
+        # Exp_Q(s_{t+1}) = Q(s_{t+1} * GAMMA) + REWARD
         expected_state_action_values = (next_state_values * self.g) + reward_batch
 
         # Compute loss
+        # L1_smooth = {|x|1|α|x2if |x|>α;if |x|≤α}
+        # L1_smooth(Q_value, Exp_Q_value)
         loss = self.loss_func_(state_action_values, expected_state_action_values.unsqueeze(1))
 
         # Optimize policy
@@ -123,6 +136,10 @@ class DQNAgent():
 
         # Update weights
         self.optimizer_.step()
+
+        if loss_gatherer is not None:
+            if isinstance(loss_gatherer, list):
+                loss_gatherer.append(loss.item())
 
     def sync_policies(self):
         self.target_net.load_state_dict(self.policy_net.state_dict())
