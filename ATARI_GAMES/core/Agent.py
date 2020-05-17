@@ -1,0 +1,30 @@
+class Agent:
+    def build(self):
+        raise Exception('Not implemented')
+
+    def set_actions(self, actions):
+        raise Exception('Not implemented')
+
+    def set_width(self, width):
+        raise Exception('Not implemented')
+
+    def set_height(self, height):
+        raise Exception('Not implemented')
+
+    def set_in_channels(self, channels):
+        raise Exception('Not implemented')
+
+    def load_state_dict(self, state_dict):
+        raise Exception('Not implemented')
+
+    def dump_policy(self, fldr=None):
+        raise Exception('Not implemented')
+
+    def select_action(self, state, modifier):
+        raise Exception('Not implemented')
+
+    def optimize_policy(self):
+        raise Exception('Not implemented')
+
+    def memory_push(self, state, action, next_state, reward):
+        raise Exception('Not implemented')

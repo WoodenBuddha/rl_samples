@@ -1,8 +1,7 @@
 import torch
 import numpy as np
 
-from itertools import count
-from Environment import Environment
+from core.Environment import Environment
 
 ENVIRONMENT_ = "Pong-v0"
 
@@ -10,9 +9,11 @@ class PongEnv(Environment):
     def __init__(self, render=False):
         super(PongEnv, self).__init__(ENVIRONMENT_, render)
 
-    def get_screen(self):
-        if self.render: self.env.render()
-        return self.preprocess(super().get_screen())
+    def get_screen(self, mode='rgb_array'):
+        screen = super().get_screen(mode)
+        if mode == 'rgb_array':
+            screen = self.preprocess(screen)
+            return screen
 
     def preprocess(self, raw):
         # Crop screen

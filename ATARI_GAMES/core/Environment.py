@@ -2,11 +2,11 @@ import gym
 from gym import wrappers
 
 
-class Environment():
+class Environment:
     def __init__(self, env_name=None, render=False):
         assert env_name is not None
         self.env = gym.make(env_name)
-        if not render: self.env = wrappers.Monitor(self.env, '', video_callable=False, force=True)
+        # if not render: self.env = wrappers.Monitor(self.env, '', video_callable=False, force=True)
 
     def make(self, env_name=None):
         assert env_name is not None

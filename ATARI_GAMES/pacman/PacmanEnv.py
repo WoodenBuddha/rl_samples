@@ -1,17 +1,22 @@
 import torch
 import numpy as np
 
-from Environment import Environment
+from core.Environment import Environment
 
 color = np.array([210, 164, 74]).mean()
 ENVIRONMENT_ = "MsPacman-v0"
 
+
 class PacmanEnv(Environment):
     def __init__(self, render=False):
+        print('Pacman environment initialization..')
         super(PacmanEnv, self).__init__(env_name=ENVIRONMENT_, render=render)
 
     def get_screen(self, mode='rgb_array'):
-        return self.preprocess(super().get_screen(mode))
+        screen = super().get_screen(mode)
+        if mode == 'rgb_array':
+            screen = self.preprocess(screen)
+            return screen
 
     def preprocess(self, raw_screen):
         # Crop screen
