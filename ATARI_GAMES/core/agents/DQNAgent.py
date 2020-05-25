@@ -11,9 +11,6 @@ from core.agents.backbones.conv_nets import ConvNet
 from utils import ReplayMemory
 from utils import Transition
 
-# TODO: implement DDQN
-# TODO: implement DRQN
-# TODO: implement DARQN
 class DQNAgent(Agent):
     def __init__(self, in_channels=None, width=None, height=None, actions=None, device=None):
         super(DQNAgent, self).__init__()
@@ -165,7 +162,7 @@ class DQNAgent(Agent):
         elif PATH == 'storage':
             pass
 
-        filename = type(self.__policy_net).__name__ + '.pt'
+        filename = 'model.pt'
         PATH = join(PATH, filename)
 
         torch.save(self.__target_net.state_dict(), PATH)

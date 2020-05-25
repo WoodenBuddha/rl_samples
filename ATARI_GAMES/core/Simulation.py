@@ -1,19 +1,27 @@
+import os
+
 import torch
+import json
 
 from itertools import count
+import numpy as np
+from numpy import concatenate
 
 from core.Agent import Agent
 from core.Environment import Environment
-from utils import check_file, create_folder
+from utils import check_file, create_folder, RLCollectables, zipdir, dump_to_json, rm_folder
 
 
 class Simulation(object):
-    def __init__(self, env, agent, device=None, device_autodefine=True, num_episodes=1000, track=True, render=False, path_to_pretrained=None, collectables_path=None):
-        print('Initializing simulation..')
+    def __init__(self, env, agent, device=None, device_autodefine=True, num_episodes=1000, track=True, render=False, path_to_pretrained=None):
         assert isinstance(env, Environment)
         assert isinstance(agent, Agent)
+        self.__info = {}
+
         self.__env = env
         self.__agent = agent
+
+        self.__add_info(env=env.__class__.__name__, agent=agent.__class__.__name__)
 
         _, screen_channels, screen_height, screen_width = self.__env.get_screen_shape()
 
@@ -23,27 +31,30 @@ class Simulation(object):
         self.__agent.set_in_channels(screen_channels)
         self.__agent.build()
 
-        self.__set_simulation_params(num_episodes, track, render, device_autodefine, device, collectables_path)
+        self.__set_simulation_params(num_episodes, track, render, device_autodefine, device)
+
+        self.__collectables = RLCollectables()
 
         if path_to_pretrained is not None:
             self.load_pretrained_model(path_to_pretrained)
-        print('Ready for simulation.')
+
 
     def run(self):
         while self.__ec <= self.__ne:
             if self.__track: print('Episode {}'.format(self.__ec))
-            self.__run_episode()
+            mean_reward = self.__run_episode()
 
-            if self.__track: pass
+            if self.__track: print('Episode {0} loss {1}, mean reward {2}'.format(self.__ec, '[Not Implemented]', mean_reward))
             self.__ec += 1
 
         if self.__track:
-            self.__agent.dump_policy()
             # TODO: save collectables (locally/to drive)
+            pass
 
     def __run_episode(self, presentation_mode=False):
         self.__env.reset()
-
+        episode_mean_loss = []
+        episode_mean_reward = []
         # TODO: add information tracking
 
         last_screen = self.__env.get_screen()
@@ -57,6 +68,9 @@ class Simulation(object):
 
             # Simulate iteration
             _, reward, done, _ = self.__env.make_step(action.item())
+
+            self.__collectables.collect_reward(self.__ec, t, reward)
+            episode_mean_reward.append(reward)
 
             reward = torch.tensor([reward])
 
@@ -75,10 +89,13 @@ class Simulation(object):
             state = next_state
 
             if not presentation_mode and t % self.__agent.batch_size == 0:
-                self.__agent.optimize_policy()
+                loss = self.__agent.optimize_policy()
+                self.__collectables.collect_loss(self.__ec, t, loss)
+                episode_mean_loss.append(loss)
 
             if done:
                 break
+        return np.mean(episode_mean_reward)
 
     def present(self):
         try:
@@ -104,7 +121,7 @@ class Simulation(object):
     def __build_agent(self):
         pass
 
-    def __set_simulation_params(self, num_episodes, track, render, device_autodefine, device, collectables_path):
+    def __set_simulation_params(self, num_episodes, track, render, device_autodefine, device):
         self.__ec = 1
         self.__ne = num_episodes
         self.__track = track
@@ -115,10 +132,28 @@ class Simulation(object):
         elif device is not None:
             self.__device = device
 
-        self.__collectables_path = collectables_path
+        self.__add_info(num_episodes=self.__ne, track=self.__track, render=self.__render)
+
+    def __save_info(self, path):
+        assert self.__info is not None
+        dump_to_json(self.__info, path, 'info')
 
     # TODO: save tracking result
     # TODO: save in g_drive
-    def save_results(self, path=None):
-        folder = create_folder(path, 'timestamp')
+    def save_results(self, path=None, zip=True):
+        if path is None:
+            path = os.path.abspath(os.getcwd())
+
+        folder, fname = create_folder(path, 'timestamp')
         self.__agent.dump_policy(folder)
+        self.__collectables.save(folder)
+        self.__save_info(folder)
+
+        if zip:
+            zipdir(folder, fname)
+            rm_folder(folder, fname)
+
+    def __add_info(self, **kwargs):
+        for arg in kwargs:
+            self.__info[arg] = kwargs.get(arg)
+

@@ -1,4 +1,10 @@
+# TODO: implement DDQN
+# TODO: implement DRQN
+# TODO: implement DARQN
 class Agent:
+    def __init__(self):
+        self.agent_type = self.__class__.__name__
+
     def build(self):
         raise Exception('Not implemented')
 
