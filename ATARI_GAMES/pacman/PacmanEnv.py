@@ -18,7 +18,8 @@ class PacmanEnv(Environment):
             screen = self.preprocess(screen)
             return screen
 
-    def preprocess(self, raw_screen):
+    @staticmethod
+    def preprocess(raw_screen):
         # Crop screen
         raw_screen = raw_screen[1:176:2, ::2]
 

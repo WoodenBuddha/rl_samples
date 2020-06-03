@@ -1,11 +1,8 @@
 import os
-
-import torch
-import json
-
 from itertools import count
+
 import numpy as np
-from numpy import concatenate
+import torch
 
 from core.Agent import Agent
 from core.Environment import Environment
@@ -13,9 +10,11 @@ from utils import check_file, create_folder, RLCollectables, zipdir, dump_to_jso
 
 
 class Simulation(object):
-    def __init__(self, env, agent, device=None, device_autodefine=True, num_episodes=1000, track=True, render=False, path_to_pretrained=None):
+    def __init__(self, env, agent, device=None, device_autodefine=True, num_episodes=1000, track=True, render=False,
+                 path_to_pretrained=None, optim_freq=4):
         assert isinstance(env, Environment)
         assert isinstance(agent, Agent)
+        assert optim_freq > 0
         self.__info = {}
 
         self.__env = env
@@ -31,25 +30,29 @@ class Simulation(object):
         self.__agent.set_in_channels(screen_channels)
         self.__agent.build()
 
-        self.__set_simulation_params(num_episodes, track, render, device_autodefine, device)
+        self.__set_simulation_params(num_episodes, track, render, device_autodefine, device, optim_freq)
 
         self.__collectables = RLCollectables()
 
         if path_to_pretrained is not None:
             self.load_pretrained_model(path_to_pretrained)
 
-
     def run(self):
         while self.__ec <= self.__ne:
             if self.__track: print('Episode {}'.format(self.__ec))
-            mean_reward = self.__run_episode()
+            mean_reward, mean_loss = self.__run_episode()
 
-            if self.__track: print('Episode {0} loss {1}, mean reward {2}'.format(self.__ec, '[Not Implemented]', mean_reward))
+            if self.__track: print(
+                'Episode {0} loss {1}, mean reward {2}'.format(self.__ec, mean_loss, mean_reward))
             self.__ec += 1
 
         if self.__track:
+            self.__collectables.plot_not_realtime('reward')
+            self.__collectables.plot_not_realtime('loss')
+            self.__collectables.plot_not_realtime('duration')
+
             # TODO: save collectables (locally/to drive)
-            pass
+
 
     def __run_episode(self, presentation_mode=False):
         self.__env.reset()
@@ -69,7 +72,6 @@ class Simulation(object):
             # Simulate iteration
             _, reward, done, _ = self.__env.make_step(action.item())
 
-            self.__collectables.collect_reward(self.__ec, t, reward)
             episode_mean_reward.append(reward)
 
             reward = torch.tensor([reward])
@@ -88,14 +90,17 @@ class Simulation(object):
             # Move to the next state
             state = next_state
 
-            if not presentation_mode and t % self.__agent.batch_size == 0:
+            if not presentation_mode and t % self.__freq == 0:
                 loss = self.__agent.optimize_policy()
-                self.__collectables.collect_loss(self.__ec, t, loss)
-                episode_mean_loss.append(loss)
+                if loss is not None:
+                    self.__collectables.collect_losses(loss)
+                    episode_mean_loss.append(loss)
 
             if done:
+                self.__collectables.collect_durations(t+1)
+                self.__collectables.collect_rewards(episode_mean_reward)
                 break
-        return np.mean(episode_mean_reward)
+        return np.mean(episode_mean_reward), np.mean(episode_mean_loss)
 
     def present(self):
         try:
@@ -121,14 +126,15 @@ class Simulation(object):
     def __build_agent(self):
         pass
 
-    def __set_simulation_params(self, num_episodes, track, render, device_autodefine, device):
+    def __set_simulation_params(self, num_episodes, track, render, device_autodefine, device, freq):
         self.__ec = 1
         self.__ne = num_episodes
         self.__track = track
         self.__render = render
+        self.__freq = freq
 
         if device_autodefine:
-          self.__device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+            self.__device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         elif device is not None:
             self.__device = device
 
@@ -156,4 +162,3 @@ class Simulation(object):
     def __add_info(self, **kwargs):
         for arg in kwargs:
             self.__info[arg] = kwargs.get(arg)
-
