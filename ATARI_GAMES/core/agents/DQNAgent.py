@@ -14,7 +14,6 @@ from utils import Transition
 class DQNAgent(Agent):
     def __init__(self, in_channels=None, width=None, height=None, actions=None, device=None):
         super(DQNAgent, self).__init__()
-        print('DQN agent initialization..')
         self._actions = actions
         self._in_channels = in_channels
         self._width = width
@@ -35,6 +34,11 @@ class DQNAgent(Agent):
         self.__policy_net = ConvNet(self._in_channels, self._width, self._height, self._actions)
         self.__target_net = ConvNet(self._in_channels, self._width, self._height, self._actions)
         self.sync_policies()
+
+        # Set info about NN model
+        backbone_type = self.__policy_net.__class__.__name__
+        input_size = [self._in_channels, self._width, self._height]
+        self.model_type = {'backbone_type':backbone_type, 'input_size':input_size}
 
         # Default loss and optim
         self._loss_func = F.smooth_l1_loss
@@ -123,18 +127,18 @@ class DQNAgent(Agent):
         #
         # According to V(s) == max(Q(s)) => next_state_value.max() == next_q_value
         # Therefore here: next_state_value == next_Q_value
-        next_state_values = torch.zeros(self.batch_size, device=self._device)
-        next_state_values[non_final_mask] = self.__target_net(non_final_next_states).max(1)[0].detach()
+        next_state_action_values = torch.zeros(self.batch_size, device=self._device)
+        next_state_action_values[non_final_mask] = self.__target_net(non_final_next_states).max(1)[0].detach()
 
         # Compute the expected Q values
         # Make action and transit to next state, get REWARD for transition.
         # Exp_Q(s_{t+1}) = Q(s_{t+1} * GAMMA) + REWARD
-        expected_state_action_values = (next_state_values * self.g) + reward_batch
+        expected_next_state_action_values = (next_state_action_values * self.g) + reward_batch
 
         # Compute loss
         # L1_smooth = {|x|1|α|x2if |x|>α;if |x|≤α}
         # L1_smooth(Q_value, Exp_Q_value)
-        loss = self._loss_func(state_action_values, expected_state_action_values.unsqueeze(1))
+        loss = self._loss_func(state_action_values, expected_next_state_action_values.unsqueeze(1))
 
         # Optimize policy
         self._optimizer.zero_grad()
