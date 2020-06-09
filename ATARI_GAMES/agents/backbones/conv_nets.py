@@ -7,7 +7,13 @@ def conv_layer_out_(size, kernel_size=5, stride=2):
     return (size - (kernel_size - 1) - 1) // stride + 1
 
 
-class ConvNet(nn.Module):
+class Conv2D(nn.Module):
+    def __init__(self):
+        print('Model: {}'.format(self.__class__.__name__))
+        super(Conv2D, self).__init__()
+
+
+class ConvNet(Conv2D):
     def __init__(self, in_channels, width, height, outputs, weights_init='xavier'):
         super(ConvNet, self).__init__()
 

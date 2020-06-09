@@ -216,3 +216,33 @@ def dump_to_csv(list, path, fname):
     with open(join(path, fname), 'w', newline='') as myfile:
         wr = csv.writer(myfile, quoting=csv.QUOTE_ALL)
         wr.writerow(list)
+
+
+class Tracker:
+    def __init__(self, debug=False):
+        self.__storage = {}
+        self.debug = debug
+
+    def put(self, **args):
+        for key, item in args.items():
+            if key not in self.__storage:
+                self.__storage[key] = []
+            self.__storage[key].append(item)
+
+    def get(self, key, ep=None):
+        if key in self.__storage:
+            if ep is None:
+                return self.__storage[key]
+            else:
+                assert isinstance(ep, int) and not isinstance(ep, bool)
+                return self.__storage[key][ep]
+        else:
+            print('No such key: [{}]'.format(key))
+
+    def load(self, key, data):
+        if key not in self.__storage:
+            self.__storage[key] = []
+        self.__storage[key].append(data)
+
+    def get_keys(self):
+        return self.__storage.keys()

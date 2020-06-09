@@ -1,4 +1,3 @@
-import os
 from itertools import count
 
 import numpy as np
@@ -6,159 +5,129 @@ import torch
 
 from core.Agent import Agent
 from core.Environment import Environment
-from utils import check_file, create_folder, RLCollectables, zipdir, dump_to_json, rm_folder
+from utils import Tracker
 
 
-class Simulation(object):
-    def __init__(self, env, agent, device=None, device_autodefine=True, num_episodes=1000, track=True, render=False,
-                 path_to_pretrained=None, optim_freq=4):
-        assert isinstance(env, Environment)
-        assert isinstance(agent, Agent)
-        assert optim_freq > 0
-        self.__info = {}
+class Simulation:
+    def __init__(self, num_episodes=1000, render=False, presentation=False, optim_freq=128, target_update_freq=10,
+                 track=True, seed=None):
+        assert optim_freq > 0, 'Policy optimization frequency must be positive numeric'
+        assert target_update_freq > 0, 'Target policy update frequency must be positive numeric'
+        self.env = None
+        self.agent = None
+        self.ready = False
 
-        self.__env = env
-        self.__agent = agent
+        self.__episodes_num = num_episodes
+        self.__optim_freq = optim_freq
+        self.__update_freq = target_update_freq
+        self.__render = render
 
-        self.__add_info(env=env.__class__.__name__, agent=agent.__class__.__name__)
+        self.__presentation = presentation
+        if self.__presentation:
+            self.__render = self.__presentation
+            track = False
 
-        _, screen_channels, screen_height, screen_width = self.__env.get_screen_shape()
+        self.__track = track
+        if self.__track:
+            self.tracker = Tracker()
 
-        self.__agent.set_actions(self.__env.get_actions().n)
-        self.__agent.set_width(screen_width)
-        self.__agent.set_height(screen_height)
-        self.__agent.set_in_channels(screen_channels)
-        self.__agent.build()
+        self.__seed = None
+        if seed is not None:
+            assert isinstance(seed, int) and not isinstance(seed, bool)
+            self.__seed = seed
 
-        self.__set_simulation_params(num_episodes, track, render, device_autodefine, device, optim_freq)
+    def set_agent(self, agent):
+        assert isinstance(agent, Agent), 'Agent must extend [{}]'.format(Agent.__class__)
+        self.agent = agent
 
-        self.__collectables = RLCollectables()
+    def set_env(self, env):
+        assert isinstance(env, Environment), 'Environment must extend [{}]'.format(Environment.__class__)
+        self.env = env
 
-        if path_to_pretrained is not None:
-            self.load_pretrained_model(path_to_pretrained)
+    def build(self):
+        assert self.agent is not None, 'Agent is not set'
+        assert self.env is not None, 'Environment is not defined'
+
+        # TODO: refactor model defining
+        self.__build_convnet()
+
+        self.ready = True
+
+    def __build_convnet(self):
+        # initiation block
+        # TODO: replace with generic approach
+        _, screen_channels, screen_height, screen_width = self.env.get_screen_shape()
+
+        self.agent.set_actions(self.env.get_actions().n)
+        self.agent.set_width(screen_width)
+        self.agent.set_height(screen_height)
+        self.agent.set_in_channels(screen_channels)
+        self.agent.build()
+
+    def __build_mlp(self):
+        raise Exception('Not implemented: build agent of [MLP] type..')
 
     def run(self):
-        while self.__ec <= self.__ne:
-            if self.__track: print('Episode {}'.format(self.__ec))
-            mean_reward, mean_loss = self.__run_episode()
+        assert self.ready is True
 
-            if self.__track: print(
-                'Episode {0} loss {1}, mean reward {2}'.format(self.__ec, mean_loss, mean_reward))
-            self.__ec += 1
+        counter = 1
+        while counter <= self.__episodes_num:
+            print('Episode {0}..'.format(counter))
+            self.__run_episode()
+            if counter % self.__update_freq == 0: self.agent.sync_policies()
 
-        if self.__track:
-            self.__collectables.plot_not_realtime('reward')
-            self.__collectables.plot_not_realtime('loss')
-            self.__collectables.plot_not_realtime('duration')
+            counter += 1
 
-            # TODO: save collectables (locally/to drive)
+    def __run_episode(self):
+        if self.__seed is not None:
+            self.env.seed(self.__seed)
 
+        self.env.reset()
 
-    def __run_episode(self, presentation_mode=False):
-        self.__env.reset()
-        episode_mean_loss = []
-        episode_mean_reward = []
-        # TODO: add information tracking
-
-        last_screen = self.__env.get_screen()
-        current_screen = self.__env.get_screen()
+        last_screen = self.env.get_screen()
+        current_screen = self.env.get_screen()
         state = current_screen - last_screen
 
-        for t in count():
-            if self.__render or presentation_mode: self.__env.get_screen(mode='human')
+        rewards, losses = [], []
 
-            action = self.__agent.select_action(state, not presentation_mode)
+        for t in count():
+            if self.__render: self.env.get_screen(mode='human')
+
+            action = self.agent.select_action(state, explore=not self.__presentation)
 
             # Simulate iteration
-            _, reward, done, _ = self.__env.make_step(action.item())
+            next_obs, reward, done, _ = self.env.make_step(action.item())
 
-            episode_mean_reward.append(reward)
+            rewards.append(reward)
 
             reward = torch.tensor([reward])
 
             # Observe new state
             last_screen = current_screen
-            current_screen = self.__env.get_screen()
+            current_screen = self.env.get_screen()
             if not done:
                 next_state = current_screen - last_screen
             else:
                 next_state = None
 
             # Store the transition in memory
-            self.__agent.memory_push(state, action, next_state, reward)
+            self.agent.memory_push(state, action, next_state, reward)
 
             # Move to the next state
             state = next_state
 
-            if not presentation_mode and t % self.__freq == 0:
-                loss = self.__agent.optimize_policy()
+            if not self.__presentation and t % self.__optim_freq == 0:
+                loss = self.agent.optimize_policy()
+
                 if loss is not None:
-                    self.__collectables.collect_losses(loss)
-                    episode_mean_loss.append(loss)
+                    losses.append(loss)
 
             if done:
-                self.__collectables.collect_durations(t+1)
-                self.__collectables.collect_rewards(episode_mean_reward)
+                if self.__track:
+                    self.tracker.put(rewards=rewards, losses=losses)
+                    print('Mean reward: {0}; Mean loss: {1}'.format(np.mean(rewards), np.mean(losses)))
                 break
-        return np.mean(episode_mean_reward), np.mean(episode_mean_loss)
 
-    def present(self):
-        try:
-            while True:
-                self.__run_episode(presentation_mode=True)
-        except KeyboardInterrupt:
-            print('Simulation interrupted..')
-
-    def set_params(self, path):
-        pass
-
-    def load_pretrained_model(self, path_to_model):
-        path = check_file(path_to_model)
-        if path is None:
-            raise Exception('Incorrect path to pretrained model!')
-        else:
-            self.__agent.load_state_dict(path_to_model)
-
-    def _get_screen_size(self):
-        assert self.__env is not None
-        self._screen_size = self.__env.get_screen_shape()
-
-    def __build_agent(self):
-        pass
-
-    def __set_simulation_params(self, num_episodes, track, render, device_autodefine, device, freq):
-        self.__ec = 1
-        self.__ne = num_episodes
-        self.__track = track
-        self.__render = render
-        self.__freq = freq
-
-        if device_autodefine:
-            self.__device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        elif device is not None:
-            self.__device = device
-
-        self.__add_info(num_episodes=self.__ne, track=self.__track, render=self.__render)
-
-    def __save_info(self, path):
-        assert self.__info is not None
-        dump_to_json(self.__info, path, 'info')
-
-    # TODO: save tracking result
-    # TODO: save in g_drive
-    def save_results(self, path=None, zip=True):
-        if path is None:
-            path = os.path.abspath(os.getcwd())
-
-        folder, fname = create_folder(path, 'timestamp')
-        self.__agent.dump_policy(folder)
-        self.__collectables.save(folder)
-        self.__save_info(folder)
-
-        if zip:
-            zipdir(folder, fname)
-            rm_folder(folder, fname)
-
-    def __add_info(self, **kwargs):
-        for arg in kwargs:
-            self.__info[arg] = kwargs.get(arg)
+    def info(self):
+        inf = {'episodes_number': self.__episodes_num, 'freq': self.__optim_freq, 'update_freq': self.__update_freq}
+        return inf

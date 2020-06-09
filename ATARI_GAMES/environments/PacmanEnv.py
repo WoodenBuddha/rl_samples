@@ -9,7 +9,6 @@ ENVIRONMENT_ = "MsPacman-v0"
 
 class PacmanEnv(Environment):
     def __init__(self, render=False):
-        print('Pacman environment initialization..')
         super(PacmanEnv, self).__init__(env_name=ENVIRONMENT_, render=render)
 
     def get_screen(self, mode='rgb_array'):

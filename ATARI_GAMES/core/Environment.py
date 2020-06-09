@@ -2,8 +2,11 @@ import gym
 
 
 class Environment:
-    def __init__(self, env_name=None, render=False):
-        assert env_name is not None
+    def __init__(self, env_name, render=False, partially_observed=None):
+        print('{} initialization..'.format(self.__class__.__name__))
+        assert env_name is not None, 'Environment must be specified'
+        self.env_name = env_name
+        self.pomdp = partially_observed
         self.env = gym.make(env_name)
         # if not render: self.env = wrappers.Monitor(self.env, '', video_callable=False, force=True)
 
@@ -26,3 +29,10 @@ class Environment:
 
     def get_actions(self):
         return self.env.action_space
+
+    def seed(self, seed):
+        self.env.seed(seed)
+
+    def info(self):
+        inf = {'env_type':self.env_name, 'action_space':self.env.action_space, 'partially_observed':self.pomdp}
+        return inf

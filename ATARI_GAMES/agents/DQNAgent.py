@@ -7,12 +7,13 @@ import torch.nn.functional as F
 import torch.optim as optim
 
 from core.Agent import Agent
-from core.agents.backbones.conv_nets import ConvNet
+from agents.backbones.conv_nets import ConvNet
 from utils import ReplayMemory
 from utils import Transition
 
 class DQNAgent(Agent):
-    def __init__(self, in_channels=None, width=None, height=None, actions=None, device=None):
+    def __init__(self, in_channels=None, width=None, height=None, actions=None, device=None,
+                 batch_size=128, gamma=0.999, eps_start=0.9, eps_end=0.05, eps_decay=200):
         super(DQNAgent, self).__init__()
         self._actions = actions
         self._in_channels = in_channels
@@ -23,7 +24,7 @@ class DQNAgent(Agent):
         self._memory = ReplayMemory(10000)  # Default capacity
         self._steps_done = 0
 
-        self.__init_hyperparams()
+        self.__init_hyperparams(batch_size=batch_size, gamma=gamma, eps_start=eps_start, eps_end=eps_end, eps_decay=eps_decay)
 
     def build(self):
         assert self._actions is not None
@@ -36,23 +37,20 @@ class DQNAgent(Agent):
         self.sync_policies()
 
         # Set info about NN model
-        backbone_type = self.__policy_net.__class__.__name__
-        input_size = [self._in_channels, self._width, self._height]
-        self.model_type = {'backbone_type':backbone_type, 'input_size':input_size}
+        # TODO: pass class
+        self.model_type = self.__policy_net.__class__.__name__
 
         # Default loss and optim
         self._loss_func = F.smooth_l1_loss
         self._optimizer = optim.RMSprop(self.__policy_net.parameters())
 
-    def __init_hyperparams(self, BATCH_SIZE=128, GAMMA=0.999, EPS_START=0.9, EPS_END=0.05, EPS_DECAY=200,
-                           TARGET_UPDATE=10):
-        assert EPS_DECAY != 0
-        self.batch_size = BATCH_SIZE
-        self.g = GAMMA
-        self.eps_start = EPS_START
-        self.eps_end = EPS_END
-        self.eps_decay = EPS_DECAY
-        self.target_update = TARGET_UPDATE
+    def __init_hyperparams(self, batch_size, gamma, eps_start, eps_end, eps_decay):
+        assert eps_decay != 0
+        self.__batch_size = batch_size
+        self.__g = gamma
+        self.__eps_start = eps_start
+        self.__eps_end = eps_end
+        self.__eps_decay = eps_decay
 
     def load_state_dict(self, state_dict):
         self.__policy_net.load_state_dict(torch.load(state_dict))
@@ -70,7 +68,7 @@ class DQNAgent(Agent):
 
     def select_action(self, state, explore=True):
         """ Select action with epsilon-greedy strategy """
-        ep_threshold = self.eps_end + (self.eps_start - self.eps_end) * math.exp(-1. * self._steps_done / self.eps_decay)
+        ep_threshold = self.__eps_end + (self.__eps_start - self.__eps_end) * math.exp(-1. * self._steps_done / self.__eps_decay)
         self._steps_done += 1
         if explore and random.random() <= ep_threshold:
             # Exploration action -> get random action
@@ -81,17 +79,16 @@ class DQNAgent(Agent):
                 # Exploitation action -> get action index with highest expected reward
                 return self.__policy_net(state).max(1)[1].view(1, 1)
 
-
     def optimize_policy(self):
         """ Optimize policy """
-        if len(self._memory) < self.batch_size:
+        if len(self._memory) < self.__batch_size:
             return
 
         # Sample random transitions of batch size from memory.
         # Converts batch - array of Transitions to Transition of batch-arrays.
         # (see https://stackoverflow.com/a/19343/3343043 for detailed explanation)
 
-        transitions = self._memory.sample(self.batch_size)
+        transitions = self._memory.sample(self.__batch_size)
         batch = Transition(*zip(*transitions))
 
         # Compute a mask of non-final states and concatenate the batch elements
@@ -127,13 +124,13 @@ class DQNAgent(Agent):
         #
         # According to V(s) == max(Q(s)) => next_state_value.max() == next_q_value
         # Therefore here: next_state_value == next_Q_value
-        next_state_action_values = torch.zeros(self.batch_size, device=self._device)
+        next_state_action_values = torch.zeros(self.__batch_size, device=self._device)
         next_state_action_values[non_final_mask] = self.__target_net(non_final_next_states).max(1)[0].detach()
 
         # Compute the expected Q values
         # Make action and transit to next state, get REWARD for transition.
         # Exp_Q(s_{t+1}) = Q(s_{t+1} * GAMMA) + REWARD
-        expected_next_state_action_values = (next_state_action_values * self.g) + reward_batch
+        expected_next_state_action_values = (next_state_action_values * self.__g) + reward_batch
 
         # Compute loss
         # L1_smooth = {|x|1|α|x2if |x|>α;if |x|≤α}
