@@ -34,5 +34,5 @@ class Environment:
         self.env.seed(seed)
 
     def info(self):
-        inf = {'env_type':self.env_name, 'action_space':self.env.action_space, 'partially_observed':self.pomdp}
+        inf = {'env_type':self.env_name, 'action_space':self.env.action_space.n, 'partially_observed':self.pomdp}
         return inf
