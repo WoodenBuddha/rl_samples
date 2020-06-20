@@ -87,6 +87,11 @@ def load_csv_to_list(path):
     return reader
 
 
+def move_file_to_dir(source_file, dest):
+    if not os.path.exists(dest):
+        os.makedirs(dest)
+    shutil.move(source_file, dest)
+
 class Tracker:
     def __init__(self, debug=False):
         self.__storage = {}

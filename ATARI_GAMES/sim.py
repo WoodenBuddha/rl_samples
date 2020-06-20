@@ -5,7 +5,7 @@ from core.Simulation import *
 from agents.DQNAgent import *
 from environments.PacmanEnv import PacmanEnv
 from environments.PongEnv import PongEnv
-from utils import Serializer
+from utils import Serializer, move_file_to_dir
 
 
 def main(*args):
@@ -22,9 +22,10 @@ def main(*args):
     update_freq = 10
     seed = None
     path = os.getcwd()
-    path_to_model = 'C:\\Users\\Aidar\\Desktop\\RL\\rl_samples\\model_1.pt'
+    path_to_model = None
     fname = None
     presentation = False
+    drive_folder = None
 
     for arg in args:
         k = arg.split('=')[0]
@@ -46,8 +47,13 @@ def main(*args):
             v = str(v).lower()
             if v == 'true' or v == 'yes' or v == 'y':
                 presentation = True
+        elif k == '-gdrive':
+            drive_folder = v
         else:
             raise Exception(f'Unknown argument [{k}]')
+
+    serializer = Serializer(path, fname)
+    path = serializer.get_savedir()
 
     def func(simulation):
         assert isinstance(simulation, Simulation)
@@ -56,8 +62,10 @@ def main(*args):
             filename = 'model_' + str(simulation.counter) + '.pt'
             simulation.agent.dump_policy(PATH=path, FILENAME=filename)
             if IN_COLAB:
-                file = join(path, filename)
-                files.download(file)
+                ffile = join(path, filename)
+                # files.download(file)  # Currently not working in colab
+                if drive_folder is not None:
+                    move_file_to_dir(ffile, drive_folder)
 
     agent = DQNAgent()
     env = PacmanEnv()
@@ -71,9 +79,6 @@ def main(*args):
     simulation.build()
     if path_to_model is not None:
         agent.load_state_dict(path_to_model)
-
-    serializer = Serializer(path, fname)
-    path = serializer.get_savedir()
 
     simulation.run()
 
