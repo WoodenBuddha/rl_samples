@@ -158,7 +158,7 @@ class DQNAgent(Agent):
     def sync_policies(self):
         self.__target_net.load_state_dict(self.__policy_net.state_dict())
 
-    def dump_policy(self, PATH=None):
+    def dump_policy(self, PATH=None, FILENAME=None):
         if PATH is None:
             PATH = ''
         elif PATH == 'current_dir':
@@ -166,7 +166,10 @@ class DQNAgent(Agent):
         elif PATH == 'storage':
             pass
 
-        filename = 'model.pt'
+        if FILENAME is None:
+            filename = 'model.pt'
+        else:
+            filename = FILENAME
         PATH = join(PATH, filename)
 
         torch.save(self.__target_net.state_dict(), PATH)

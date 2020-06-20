@@ -31,6 +31,8 @@ class Simulation:
         if self.__track:
             self.tracker = Tracker()
 
+        self.counter = 1
+
         self.__seed = None
         if seed is not None:
             assert isinstance(seed, int) and not isinstance(seed, bool)
@@ -73,14 +75,13 @@ class Simulation:
     def run(self):
         assert self.ready is True
 
-        counter = 1
-        while counter <= self.__episodes_num:
-            print('Episode {0}..'.format(counter))
+        while self.counter <= self.__episodes_num:
+            print('Episode {0}..'.format(self.counter))
             self.__run_episode()
-            if counter % self.__update_freq == 0: self.agent.sync_policies()
+            if self.counter % self.__update_freq == 0: self.agent.sync_policies()
 
             self.do_after_episode()
-            counter += 1
+            self.counter += 1
 
     def __run_episode(self):
         if self.__seed is not None:
@@ -136,6 +137,6 @@ class Simulation:
         inf = {'episodes_number': self.__episodes_num, 'freq': self.__optim_freq, 'update_freq': self.__update_freq}
         return inf
 
-    def do_after_episode(self, param=None):
+    def do_after_episode(self):
         if self.func is not None:
-            return self.func(param)
+            return self.func(self)

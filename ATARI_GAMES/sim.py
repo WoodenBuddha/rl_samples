@@ -8,6 +8,13 @@ from utils import Serializer
 
 
 def main(*args):
+    try:
+        import google.colab
+        import google.colab.files as files
+        IN_COLAB = True
+    except:
+        IN_COLAB = False
+
     episodes = 1000
     optimization_freq = 4
     update_freq = 10
@@ -15,6 +22,7 @@ def main(*args):
     path = os.getcwd()
     path_to_model = 'C:\\Users\\Aidar\\Desktop\\RL\\rl_samples\\results\\2020_06_08_18_13_04_06s\\model.pt'
     fname = None
+    presentation = False
 
     for arg in args:
         k = arg.split('=')[0]
@@ -32,24 +40,40 @@ def main(*args):
             path = v
         elif k == '-f':
             fname = v
+        elif k == '-pres':
+            v = str(v).lower()
+            if v == 'true' or v == 'yes' or v == 'y':
+                presentation = True
         else:
             raise Exception(f'Unknown argument [{k}]')
+
+    def func(simulation):
+        assert isinstance(simulation, Simulation)
+        if simulation.counter % 1000:
+            print(f'Saving model on {simulation.counter} episode')
+            filename = 'model_' + str(simulation.counter) + '.pt'
+            simulation.agent.dump_policy(PATH=path, FILENAME=filename)
+            if IN_COLAB:
+                file = join(path, filename)
+                files.download(file)
 
     agent = DQNAgent()
     env = PacmanEnv()
     simulation = Simulation(num_episodes=episodes, optim_freq=optimization_freq, target_update_freq=update_freq,
-                            seed=seed, presentation=True)
+                            seed=seed, presentation=presentation, func=None)
 
     # Set objects
     simulation.set_agent(agent)
     simulation.set_env(env)
 
     simulation.build()
-    agent.load_state_dict(path_to_model)
+    if path_to_model is not None:
+        agent.load_state_dict(path_to_model)
+
+    serializer = Serializer(path, fname)
 
     simulation.run()
 
-    serializer = Serializer(path, fname)
 
     sim_info = simulation.info()
     sim_info.update(agent.info())
