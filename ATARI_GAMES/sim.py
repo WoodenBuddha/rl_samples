@@ -13,6 +13,7 @@ def main(*args):
     update_freq = 10
     seed = None
     path = os.getcwd()
+    path_to_model = 'C:\\Users\\Aidar\\Desktop\\RL\\rl_samples\\results\\2020_06_08_18_13_04_06s\\model.pt'
     fname = None
 
     for arg in args:
@@ -20,16 +21,16 @@ def main(*args):
         v = arg.split('=')[1]
 
         if k == '-e':
-            episodes = v
-        if k == '-of':
-            optimization_freq = v
-        if k == '-uf':
-            update_freq = v
-        if k == '-s':
-            seed = v
-        if k == '-p':
+            episodes = int(v)
+        elif k == '-of':
+            optimization_freq = int(v)
+        elif k == '-uf':
+            update_freq = int(v)
+        elif k == '-s':
+            seed = int(v)
+        elif k == '-p':
             path = v
-        if k == '-f':
+        elif k == '-f':
             fname = v
         else:
             raise Exception(f'Unknown argument [{k}]')
@@ -37,13 +38,14 @@ def main(*args):
     agent = DQNAgent()
     env = PacmanEnv()
     simulation = Simulation(num_episodes=episodes, optim_freq=optimization_freq, target_update_freq=update_freq,
-                            seed=seed)
+                            seed=seed, presentation=True)
 
     # Set objects
     simulation.set_agent(agent)
     simulation.set_env(env)
 
     simulation.build()
+    agent.load_state_dict(path_to_model)
 
     simulation.run()
 

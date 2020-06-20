@@ -76,8 +76,15 @@ def dump_to_pickle(list, path, fname):
 
 def dump_to_csv(list, path, fname):
     with open(join(path, fname), 'w', newline='') as myfile:
-        wr = csv.writer(myfile, quoting=csv.QUOTE_ALL)
+        wr = csv.writer(myfile, quoting=csv.QUOTE_NONNUMERIC)
         wr.writerow(list)
+
+
+def load_csv_to_list(path):
+    with open(path, 'r') as f:
+        reader = csv.reader(f, delimiter=',')
+        data = list(reader)
+    return reader
 
 
 class Tracker:

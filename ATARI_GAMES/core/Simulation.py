@@ -35,6 +35,8 @@ class Simulation:
         if seed is not None:
             assert isinstance(seed, int) and not isinstance(seed, bool)
             self.__seed = seed
+        print(
+            f'Simulation initialized: env=[{self.__episodes_num}], optim_freq=[{self.__optim_freq}], update_freq=[{self.__update_freq}]')
 
     def set_agent(self, agent):
         assert isinstance(agent, Agent), 'Agent must extend [{}]'.format(Agent.__class__)
@@ -76,6 +78,7 @@ class Simulation:
             self.__run_episode()
             if counter % self.__update_freq == 0: self.agent.sync_policies()
 
+            self.do_after_episode()
             counter += 1
 
     def __run_episode(self):
@@ -131,3 +134,7 @@ class Simulation:
     def info(self):
         inf = {'episodes_number': self.__episodes_num, 'freq': self.__optim_freq, 'update_freq': self.__update_freq}
         return inf
+
+    def do_after_episode(self, param=None):
+        if self.callback is not None:
+            return self.callback(param)
