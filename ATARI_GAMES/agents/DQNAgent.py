@@ -25,6 +25,9 @@ class DQNAgent(Agent):
         self._steps_done = 0
 
         self.__init_hyperparams(batch_size=batch_size, gamma=gamma, eps_start=eps_start, eps_end=eps_end, eps_decay=eps_decay)
+        print(
+            f'Agent initialized: agent=[{self.agent_type}], batch_size=[{batch_size}], gamma=[{gamma}], '
+                f'eps_start=[{eps_start}], eps_end=[{eps_end}], eps_decay=[{eps_decay}]')
 
     def build(self):
         assert self._actions is not None

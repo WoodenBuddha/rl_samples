@@ -10,7 +10,7 @@ from utils import Tracker
 
 class Simulation:
     def __init__(self, num_episodes=1000, render=False, presentation=False, optim_freq=128, target_update_freq=10,
-                 track=True, seed=None):
+                 track=True, seed=None, func=None):
         assert optim_freq > 0, 'Policy optimization frequency must be positive numeric'
         assert target_update_freq > 0, 'Target policy update frequency must be positive numeric'
         self.env = None
@@ -35,8 +35,9 @@ class Simulation:
         if seed is not None:
             assert isinstance(seed, int) and not isinstance(seed, bool)
             self.__seed = seed
+        self.func = func
         print(
-            f'Simulation initialized: env=[{self.__episodes_num}], optim_freq=[{self.__optim_freq}], update_freq=[{self.__update_freq}]')
+            f'Simulation initialized: episodes=[{self.__episodes_num}], optim_freq=[{self.__optim_freq}], update_freq=[{self.__update_freq}]')
 
     def set_agent(self, agent):
         assert isinstance(agent, Agent), 'Agent must extend [{}]'.format(Agent.__class__)
@@ -136,5 +137,5 @@ class Simulation:
         return inf
 
     def do_after_episode(self, param=None):
-        if self.callback is not None:
-            return self.callback(param)
+        if self.func is not None:
+            return self.func(param)
