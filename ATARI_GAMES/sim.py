@@ -4,6 +4,7 @@ import sys
 from core.Simulation import *
 from agents.DQNAgent import *
 from environments.PacmanEnv import PacmanEnv
+from environments.PongEnv import PongEnv
 from utils import Serializer
 
 
@@ -12,6 +13,7 @@ def main(*args):
         import google.colab
         import google.colab.files as files
         IN_COLAB = True
+        print('Running in Google Colab')
     except:
         IN_COLAB = False
 
@@ -20,7 +22,7 @@ def main(*args):
     update_freq = 10
     seed = None
     path = os.getcwd()
-    path_to_model = 'C:\\Users\\Aidar\\Desktop\\RL\\rl_samples\\results\\2020_06_08_18_13_04_06s\\model.pt'
+    path_to_model = None
     fname = None
     presentation = False
 
