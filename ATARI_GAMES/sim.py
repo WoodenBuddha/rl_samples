@@ -51,7 +51,7 @@ def main(*args):
 
     def func(simulation):
         assert isinstance(simulation, Simulation)
-        if simulation.counter % 1000:
+        if simulation.counter % 1000 == 0:
             print(f'Saving model on {simulation.counter} episode')
             filename = 'model_' + str(simulation.counter) + '.pt'
             simulation.agent.dump_policy(PATH=path, FILENAME=filename)
@@ -73,6 +73,7 @@ def main(*args):
         agent.load_state_dict(path_to_model)
 
     serializer = Serializer(path, fname)
+    path = serializer.get_savedir()
 
     simulation.run()
 
