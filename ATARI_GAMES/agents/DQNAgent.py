@@ -58,6 +58,7 @@ class DQNAgent(Agent):
     def load_state_dict(self, state_dict):
         self.__policy_net.load_state_dict(torch.load(state_dict))
         self.sync_policies()
+        print(f'Model loaded: {state_dict}')
 
     def set_optimizer(self, optimizer):
         assert isinstance(optimizer, optim.Optimizer)

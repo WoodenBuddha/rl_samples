@@ -22,7 +22,7 @@ def main(*args):
     update_freq = 10
     seed = None
     path = os.getcwd()
-    path_to_model = None
+    path_to_model = 'C:\\Users\\Aidar\\Desktop\\RL\\rl_samples\\model_1.pt'
     fname = None
     presentation = False
 
